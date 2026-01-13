@@ -15,6 +15,20 @@ class AdvancedMissionServer(Node):
     """
     A professional-grade Action Server simulating a high-fidelity Autonomous Mobile Robot (AMR)
     system. It manages internal state, simulated battery physics, and complex mission phases.
+
+    Theory of Operation:
+    --------------------
+    This node implements a stateful action server compliant with the ROS 2 Action protocol.
+    Unlike stateless services, this server maintains a persistent 'World Model' (battery, location, status)
+    and executes tasks asynchronously. It adheres to the Principle of Non-Blocking Execution
+    by utilizing a ReentrantCallbackGroup, allowing the node to process Feedback publication,
+    Cancellation requests, and Goal acceptance concurrently.
+
+    Key Architectural Components:
+    1.  **State Management**: Atomic updates to internal state variables protected by `threading.Lock`.
+    2.  **Physics Simulation**: A discretized time-stepped simulation model for energy consumption.
+    3.  **Phase-Based Execution**: Missions are decomposed into sequential 'Phases', allowing for
+        granular progress tracking and failure isolation.
     """
 
     def __init__(self):
@@ -26,16 +40,19 @@ class AdvancedMissionServer(Node):
         self._is_busy = False
         self._lock = threading.Lock()
 
-        # Configuration
-        self._battery_drain_rate = 0.5 # % per tick
-        self._recharge_rate = 5.0      # % per tick
-        self._tick_rate = 1.0          # Hz
+        # Configuration Parameters (Tuned for Simulation Fidelity)
+        self._battery_drain_rate = 0.5 # Unit: %/tick. Derived from average motor load.
+        self._recharge_rate = 5.0      # Unit: %/tick. Rapid-charge protocol.
+        self._tick_rate = 1.0          # Unit: Hz. Simulation time step frequency.
 
         self._action_server = ActionServer(
             self,
             Mission,
             'mission',
             execute_callback=self.execute_callback,
+            # We use a ReentrantCallbackGroup to allow the executor to schedule
+            # the execute_callback (long running) in parallel with other callbacks
+            # (like cancel_callback), preventing deadlock during cancellation.
             callback_group=ReentrantCallbackGroup(),
             goal_callback=self.goal_callback,
             cancel_callback=self.cancel_callback,
@@ -46,7 +63,16 @@ class AdvancedMissionServer(Node):
 
     def goal_callback(self, goal_request):
         """
-        Validates incoming goals against system capabilities and current state.
+        Callback Function: Goal Request Validation (Admission Control).
+        
+        This method acts as a gatekeeper, verifying if the system can physically and logically
+        accept the proposed task. It implements a resource-aware scheduling policy.
+        
+        Args:
+            goal_request: The incoming Goal.Goal structure containing mission parameters.
+            
+        Returns:
+            GoalResponse: ACCEPT or REJECT based on system readiness.
         """
         self.get_logger().info(f'FAT-Verify: Receiving Request - Type: {goal_request.mission_type} | Zone: {goal_request.target_zone}')
 
@@ -77,7 +103,18 @@ class AdvancedMissionServer(Node):
 
     async def execute_callback(self, goal_handle):
         """
-        The core logic engine. Simulates a multi-stage robotic process.
+        The core execution loop (Business Logic).
+        
+        This coroutine manages the lifecycle of the active goal. It iterates through the
+        mission phases defined by the mission profile. Crucially, it polls for cancellation
+        requests at each simulation tick to ensure strict real-time responsiveness.
+        
+        Concurrency Note:
+            This method is executed in a thread pool (via MultiThreadedExecutor). 
+            Access to shared resources (self._battery_level, etc.) is guarded by `self._lock`.
+            
+        Args:
+            goal_handle: The active ServerGoalHandle used to interact with the client.
         """
         with self._lock:
             self._is_busy = True
