@@ -1,0 +1,35 @@
+# Goal Definition
+# The type of mission to perform
+string mission_type # e.g., "LOGISTICS_DELIVERY", "SURVEILLANCE_PATROL", "EMERGENCY_RESPONSE"
+# Target location or zone identifier
+string target_zone
+# Mission priority (1-10), could preempt lower priority tasks in a real scheduler
+int32 priority
+# Specific parameters for the task (JSON-like string for flexibility)
+string parameters
+
+---
+# Result Definition
+# Overall success status
+bool success
+# Detailed status message
+string report
+# Metrics collected during execution
+float32 operational_efficiency
+# Total energy consumed (simulated kWh)
+float32 energy_consumed
+# Simulated time taken
+float32 execution_time
+
+---
+# Feedback Definition
+# Current operational phase
+string current_phase # e.g., "PATH_PLANNING", "TRANSIT", "ACQUISITION", "PROCESSING"
+# 0.0 to 100.0
+float32 progress_percentage
+# Current battery level of the agent
+float32 battery_level
+# Live telemetry logs
+string log_message
+# Estimated time remaining
+float32 estimated_time_remaining
