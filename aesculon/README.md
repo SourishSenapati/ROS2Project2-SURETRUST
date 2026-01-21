@@ -33,31 +33,27 @@ Chemical reactions are **time-variant dynamic processes** that evolve over minut
 *   **Aesculon Core (Server):** The physics engine acting as the SIL-4 Safety Controller.
 *   **Console (Client):** The Distributed Control System (DCS) interface.
 
-## 4. Execution (Interactive Simulation)
-The system is now a dynamic simulation tool. 
+## 4. Execution (Engineering Dashboard)
+To demonstrate the deterministic physics model, use the `dashboard.launch.py` file. This launches the core and a live telemetry graph (`rqt_plot`).
 
-### Step 1: Ignite the Physics Engine (Server)
-In Terminal 1:
+### Step 1: Launch the Dashboard (Terminal 1)
+This brings up the Physics Engine and the Oscilloscope.
 ```bash
-ros2 run aesculon aesculon_core
+ros2 launch aesculon dashboard.launch.py
 ```
-*Output: `[INFO] >>> AESCULON PHYSICS ENGINE ONLINE. READY FOR INPUT.`*
+*Visual: A window will appear with an empty graph, waiting for data.*
 
-### Step 2: Launch the Operator Console (Client)
-In Terminal 2:
+### Step 2: Launch the Operator Console (Terminal 2)
+This is your input terminal.
 ```bash
 ros2 run aesculon aesculon_console
 ```
 
-### Step 3: Input Protocol Parameters
-The CLI will request simulation parameters. You can test different scenarios:
+### Step 3: Run the "Aura" Demo
+**Scenario A (Safe Protocol):**
+*   Target: `340` K | Limit: `300000` Pa | Duration: `30`s
+*   **Result:** Watch the graph. The blue line (Temperature) will rise smoothly and stabilize. This proves the **Differential Calculus** is working continuously.
 
-**Scenario A (Safe Operation):**
-*   Target Temperature: `340` Kelvin
-*   Safety Limit: `300000` Pascals
-*   **Result:** System stabilizes. Verdict: `OPTIMAL`.
-
-**Scenario B (Thermal Runaway / Explosion):**
-*   Target Temperature: `400` Kelvin
-*   Safety Limit: `120000` Pascals
-*   **Result:** Arrhenius exponential spike causes pressure surge. Verdict: `OVER_PRESSURE_SCRAM`.
+**Scenario B (Exothermic Runaway):**
+*   Target: `500` K | Limit: `150000` Pa | Duration: `40`s
+*   **Result:** The curve will shoot up exponentially (Arrhenius Behavior). When it hits `150000`, it flatlines instantly. The Console screams `OVER_PRESSURE_SCRAM`.
