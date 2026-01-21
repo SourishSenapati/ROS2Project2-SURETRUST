@@ -1,19 +1,17 @@
-# GOAL: Reaction Parameters
-string protocol_id       # Batch ID
-float32 target_temp_k    # Setpoint (e.g., 350.0 K)
-float32 limit_pressure_pa # Safety Limit (e.g., 300,000 Pa)
+# GOAL: Protocol Parameters
+string protocol_id
+float32 target_temperature_kelvin
+float32 max_pressure_pascals
 
 ---
-# RESULT: Final State
-bool safe_shutdown       # True if cycle finished, False if Scram
-string thermodynamic_state # "EQUILIBRIUM", "RUNAWAY", "QUENCHED"
-float32 final_conversion # % of Reactant Consumed
+# RESULT: Final Process Verdict
+string thermodynamic_state  # "EQUILIBRIUM", "RUNAWAY", "QUENCHED"
+float32 final_conversion_efficiency
 
 ---
-# FEEDBACK: Real-time Physics State
-float32 temp_k           # Reactor Temperature
-float32 pressure_pa      # Reactor Pressure
-float32 heat_gen_rate    # Q_gen (Watts) - The metabolic rate of the reaction
-float32 coolant_duty     # Q_rem (Watts) - The cooling power applied
-float32 reactant_conc    # Concentration [mol/m^3]
-string aesculon_status   # "JUDGING", "INTERVENING"
+# FEEDBACK: Real-time Telemetry
+float32 current_temp_k
+float32 current_pressure_pa
+float32 heat_generation_watts
+float32 reactant_concentration_molar
+float32 reaction_progress   # Molar conversion (0.0 to 1.0)

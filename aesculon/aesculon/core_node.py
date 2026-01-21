@@ -37,7 +37,7 @@ class AesculonCore(Node):
 
     def goal_callback(self, goal):
         # Physical Constraint: Absolute Zero check
-        if goal.target_temp_k <= 0:
+        if goal.target_temperature_kelvin <= 0:
             return GoalResponse.REJECT
         self.get_logger().info(f'Analyzing Protocol: {goal.protocol_id}')
         return GoalResponse.ACCEPT
@@ -52,12 +52,14 @@ class AesculonCore(Node):
         # Initial State (Standard Ambient)
         T = 298.15      # K (25 C)
         C_A = 2000.0    # mol/m^3 (Initial Concentration)
+        C_A0 = 2000.0   # Reference Initial Concentration
         P_initial = 101325.0 # Pa (1 atm)
         
-        target_T = goal.request.target_temp_k
-        max_P = goal.request.limit_pressure_pa
+        # Extract Goal Parameters
+        target_T = goal_handle.request.target_temperature_kelvin
+        limit_P = goal_handle.request.max_pressure_pascals
         
-        dt = 0.2        # Time step (seconds)
+        dt = 0.5        # Time step (seconds)
         time_elapsed = 0.0
         
         feedback = Judgment.Feedback()
@@ -68,7 +70,6 @@ class AesculonCore(Node):
             # 1. CHECK CANCELLATION
             if goal_handle.is_cancel_requested:
                 goal_handle.canceled()
-                result.safe_shutdown = False
                 result.thermodynamic_state = "INTERRUPTED"
                 return result
 
@@ -83,9 +84,10 @@ class AesculonCore(Node):
             rate = k * C_A
             
             # C. Mass Balance: dC_A/dt = -r
+            # Explicit Euler Integration
             dCa_dt = -rate
             C_A += dCa_dt * dt
-            if C_A < 0: C_A = 0 # Mass cannot be negative
+            if C_A < 0: C_A = 0.0 # Mass cannot be negative
 
             # D. Energy Balance: m*Cp*dT/dt = Q_gen - Q_rem
             # Q_gen = Rate * Volume * (-dH)  (Note: dH is negative for exo)
@@ -103,31 +105,31 @@ class AesculonCore(Node):
             
             # Apply Stochastic Noise (Real-world sensor fluctuation)
             noise = random.uniform(-0.05, 0.05) 
-            T += (dT_dt * dt) + noise
+            T_new = T + (dT_dt * dt) + noise
+            T = T_new
 
             # E. Equation of State (Pressure)
-            # P = P_initial * (T / T_initial) + Vapor Pressure Contribution
-            # Simplified Antoine-like contribution for vapor
-            P_vapor = 1000 * math.exp(0.05 * (T - 298.15))
-            P_current = P_initial * (T / 298.15) + P_vapor
+            # P = P_initial * (T / T_initial) + Vapor Pressure Contribution (Antoine)
+            # Modeled roughly after volatile organic solvent vapor pressure curve
+            P_vapor_contribution = 1000 * math.exp(0.045 * (T - 298.15))
+            P_current = P_initial * (T / 298.15) + P_vapor_contribution
 
             # 3. JUDGMENT LOGIC (SIL-4 SAFETY)
-            if P_current > max_P:
-                self.get_logger().error(f'!!! VIOLATION: Pressure {P_current:.0f} Pa > Limit !!!')
-                self.get_logger().error('>>> INITIATING RAPID QUENCH SEQUENCE <<<')
+            if P_current > limit_P:
+                self.get_logger().error(f'CRITICAL: Pressure {P_current:.0f} Pa > Limit {limit_P} Pa!')
+                self.get_logger().error('CRITICAL: VESSEL INTEGRITY THREAT DETECTED.')
+                
                 goal_handle.abort()
-                result.safe_shutdown = False
-                result.thermodynamic_state = "RUNAWAY_CONTAINED"
-                result.final_conversion = (1.0 - (C_A / 2000.0)) * 100.0
+                result.thermodynamic_state = "CONTAINMENT_BREACH_PREVENTED"
+                result.final_conversion_efficiency = (1.0 - (C_A / C_A0))
                 return result
 
             # 4. FEEDBACK PUBLICATION
-            feedback.temp_k = T
-            feedback.pressure_pa = P_current
-            feedback.heat_gen_rate = Q_gen
-            feedback.coolant_duty = Q_rem
-            feedback.reactant_conc = C_A
-            feedback.aesculon_status = "STABILIZING" if abs(dT_dt) < 0.1 else "COMPUTING"
+            feedback.current_temp_k = T
+            feedback.current_pressure_pa = P_current
+            feedback.heat_generation_watts = Q_gen
+            feedback.reactant_concentration_molar = C_A
+            feedback.reaction_progress = (1.0 - (C_A / C_A0))
             
             goal_handle.publish_feedback(feedback)
             time_elapsed += dt
@@ -135,9 +137,8 @@ class AesculonCore(Node):
 
         # SUCCESS
         goal_handle.succeed()
-        result.safe_shutdown = True
         result.thermodynamic_state = "EQUILIBRIUM_REACHED"
-        result.final_conversion = (1.0 - (C_A / 2000.0)) * 100.0
+        result.final_conversion_efficiency = (1.0 - (C_A / C_A0))
         self.get_logger().info('>>> CYCLE COMPLETE. ENTROPY MINIMIZED.')
         return result
 

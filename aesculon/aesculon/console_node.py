@@ -11,8 +11,8 @@ class AesculonConsole(Node):
     def begin_restoration(self):
         goal = Judgment.Goal()
         goal.protocol_id = "THERMO-CYCLE-ALPHA"
-        goal.target_temp_k = 340.0      # 67 C
-        goal.limit_pressure_pa = 200000.0 # 2 Bar approx
+        goal.target_temperature_kelvin = 340.0      # 67 C
+        goal.max_pressure_pascals = 200000.0 # 2 Bar approx
 
         self.get_logger().info('Transmitting Thermodynamic Constraints...')
         self._client.wait_for_server()
@@ -23,12 +23,11 @@ class AesculonConsole(Node):
 
     def monitor_physics(self, msg):
         fb = msg.feedback
-        # Engineering Notation for Clarity
+        # DCS Style Logging
         log = (
-            f"STATUS: {fb.aesculon_status} | "
-            f"T: {fb.temp_k:.1f} K | "
-            f"P: {fb.pressure_pa/1000:.1f} kPa | "
-            f"Q_gen: {fb.heat_gen_rate/1000:.1f} kW"
+            f"TELEMETRY: T={fb.current_temp_k:.1f}K | "
+            f"P={fb.current_pressure_pa/1000:.1f}kPa | "
+            f"Q_gen={fb.heat_generation_watts/1000:.1f}kW"
         )
         self.get_logger().info(log)
 
@@ -45,7 +44,7 @@ class AesculonConsole(Node):
         res = future.result().result
         self.get_logger().info('--- THERMODYNAMIC REPORT ---')
         self.get_logger().info(f'State: {res.thermodynamic_state}')
-        self.get_logger().info(f'Conversion: {res.final_conversion:.2f}%')
+        self.get_logger().info(f'Conversion Efficiency: {res.final_conversion_efficiency:.4f}')
         rclpy.shutdown()
 
 def main(args=None):
