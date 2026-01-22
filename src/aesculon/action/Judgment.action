@@ -1,0 +1,17 @@
+# GOAL
+string protocol_id
+float32 target_temp_k
+float32 limit_pressure_pa
+float32 duration_sec
+---
+# RESULT
+bool safe_shutdown
+string verdict_code
+float32 final_yield
+---
+# FEEDBACK
+float32 current_temp_k
+float32 current_pressure_pa
+float32 heat_gen_watts
+float32 progress_percent
+string system_status
