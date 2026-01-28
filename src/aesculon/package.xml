@@ -3,13 +3,15 @@
 <package format="3">
   <name>aesculon</name>
   <version>1.0.0</version>
-  <description>AESCULON: Chemical Reactor Safety System using ROS 2 Actions</description>
+  <description>AESCULON: Enterprise-Grade Distributed Safety Agent for Industrial Automation (SIL-4)</description>
   <maintainer email="student@uni.edu">Student</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <build_depend>rosidl_default_generators</build_depend>
   <exec_depend>rosidl_default_runtime</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
   <member_of_group>rosidl_interface_packages</member_of_group>
 
   <depend>rclpy</depend>

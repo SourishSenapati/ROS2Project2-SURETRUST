@@ -1,0 +1,7 @@
+aesculon_core:
+  ros__parameters:
+    reactor_volume: 5.0
+    max_safe_pressure: 250000.0
+    sil_level: 4
+    # Maintenance Parameters
+    maintenance_cycle_threshold: 1000

@@ -27,7 +27,17 @@ install(PROGRAMS
   RENAME aesculon_console
 )
 
+install(PROGRAMS
+  aesculon/vision_node.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME aesculon_vision
+)
+
 install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
 

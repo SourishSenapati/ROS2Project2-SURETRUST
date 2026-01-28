@@ -34,42 +34,101 @@ class AesculonConsole(Node):
 
     def fb_cb(self, msg):
         fb = msg.feedback
-        sys.stdout.write(f"\r>> [{fb.progress_percent:.0f}%] T:{fb.current_temp_k:.1f}K | P:{fb.current_pressure_pa:.0f}Pa")
+        # ASCII Visualization
+        bars = int(fb.progress_percent / 5)
+        prog_bar = "[" + "=" * bars + " " * (20 - bars) + "]"
+        
+        # Color codes (ANSI)
+        RED = '\033[91m'
+        GREEN = '\033[92m'
+        YELLOW = '\033[93m'
+        RESET = '\033[0m'
+
+        t_color = GREEN if abs(fb.current_temp_k - 350) < 50 else RED
+        p_color = GREEN if fb.current_pressure_pa < 200000 else RED
+
+        sys.stdout.write(f"\r{prog_bar} {fb.progress_percent:5.1f}% | Temp: {t_color}{fb.current_temp_k:6.1f}K{RESET} | Pres: {p_color}{fb.current_pressure_pa/1000:6.1f} kPa{RESET} | Status: {fb.system_status}")
+        
+        # Overlay Object Detection Alerts
+        if hasattr(fb, 'detected_hazards') and fb.detected_hazards:
+            alert_msg = " | ".join(fb.detected_hazards)
+            # Clearing line below to print alerts without scrolling mess
+            sys.stdout.write(f"\n   [NEURAL OPTICS]: {RED}{alert_msg}{RESET}")
+            # Move cursor back up one line 
+            sys.stdout.write("\033[F") 
+            
         sys.stdout.flush()
 
     def goal_cb(self, future):
         self._goal_handle = future.result()
         if not self._goal_handle.accepted:
-            print("\nGoal Rejected.")
+            print("\n>>> CRITICAL: PROTOCOL REJECTED BY SAFETY LOGIC.")
             return
-        print("\nGoal Accepted.")
+        print("\n>>> PROTOCOL UPLOADED. EXECUTING BATCH...")
         self._res_future = self._goal_handle.get_result_async()
         self._res_future.add_done_callback(self.res_cb)
 
     def res_cb(self, future):
         res = future.result().result
-        print(f"\n\nFINAL VERDICT: {res.verdict_code}")
+        print(f"\n\n>>> BATCH COMPLETE. CERTIFIED RESULT: {res.verdict_code}")
         rclpy.shutdown()
 
     def cancel_run(self):
-        print("\n>>> MANUAL ABORT INITIATED.")
+        print("\n>>> MANUAL SCRAM INITIATED (SUB-ROUTINE 0x99).")
         if hasattr(self, '_goal_handle') and self._goal_handle:
             future = self._goal_handle.cancel_goal_async()
             rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
-            print(">>> ABORT SIGNAL SENT.")
+            print(">>> SCRAM SIGNAL ACKNOWLEDGED BY CORE.")
 
 def main(args=None):
     rclpy.init(args=args)
     node = AesculonConsole()
+    
+    # Phase 1: Setup & Protocol Transmission
     try:
         node.send_protocol()
-        rclpy.spin(node)
     except KeyboardInterrupt:
-        node.cancel_run()
-    finally:
+        print("\n\n>>> Initialization Aborted.")
+        node.destroy_node()
+        if rclpy.ok(): rclpy.shutdown()
+        return
+
+    # Phase 2: Active Monitoring (Safety Loop)
+    executor = SingleThreadedExecutor()
+    executor.add_node(node)
+
+    while rclpy.ok():
+        try:
+            executor.spin()
+            if not rclpy.ok(): break
+        except KeyboardInterrupt:
+            # Clear line and show Safety Menu
+            sys.stdout.write("\n")
+            print("!!! SAFETY INTERLOCK ENGAGED - SYSTEM PAUSED !!!")
+            print("To TRIGGER EMERGENCY SCRAM, type 'CONFIRM'.")
+            print("To RESUME normal operation, press Enter.")
+            try:
+                # Flush input buffer just in case
+                sys.stdin.flush()
+                user_in = input("Command [CONFIRM/resume]: ")
+                if user_in.strip() == 'CONFIRM':
+                    node.cancel_run()
+                    break
+                else:
+                    print(">>> RESUMING BATCH...")
+                    continue
+            except KeyboardInterrupt:
+                print("\n>>> FORCED EXIT.")
+                node.cancel_run()
+                break
+    
+    # Cleanup
+    try:
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
+    except:
+        pass
 
 if __name__ == '__main__':
     main()

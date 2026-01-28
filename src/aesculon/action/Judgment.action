@@ -15,3 +15,4 @@ float32 current_pressure_pa
 float32 heat_gen_watts
 float32 progress_percent
 string system_status
+string[] detected_hazards
